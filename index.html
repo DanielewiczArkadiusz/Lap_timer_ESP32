@@ -1,0 +1,385 @@
+
+
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=default"></script>
+
+    <title>GPS</title>
+    <style>
+        #map {
+            height: 100%;
+        }
+        .container {
+            height: 50%;
+        }
+        #map-container {
+            width: 100%;
+            height: 50vh;
+            float: left;
+        }
+
+        #okrazenia {
+            width: 300px;
+            float: left;
+        }
+        #okrazenia h1 {
+            font-size: 30px;
+        }
+        #drop-box-container {
+            width: 300px;
+            float: left;
+        }
+        #info-box-container {
+            width: 300px;
+            float: left;
+            font-family: C059;
+        }
+        #data-container {
+            margin-top: 30px;
+            padding: 0 30px;
+        }
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* list styles */
+        #lista-okrazen {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        #lista-okrazen li {
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        #lista-okrazen a {
+            display: block;
+            padding: 10px;
+            color: #333;
+            text-decoration: none;
+        }
+
+        #lista-okrazen a:hover {
+            background-color: #f7f7f7;
+        }
+
+        #lista-okrazen a:before {
+            content: "";
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            margin-right: 10px;
+            border-radius: 50%;
+            background-color: #333;
+        }
+
+        #lista-okrazen li:nth-child(1) a:before {
+            background-color: #ff9800;
+        }
+
+        #lista-okrazen li:nth-child(2) a:before {
+            background-color: #2196f3;
+        }
+
+        #lista-okrazen li:nth-child(3) a:before {
+            background-color: #9c27b0;
+        }
+
+        #lista-okrazen h3 {
+            margin: 0;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        #lista-okrazen p {
+            margin: 5px 0 0 0;
+            font-size: 14px;
+            color: #999;
+        }
+
+        #info-box-container {
+            margin-left: 30px;
+            width: 300px;
+            font-family: "Open Sans", sans-serif;
+        }
+
+        #info-box {
+            border: 1px solid #ccc;
+            padding: 10px;
+            background-color: #fff;
+            margin-top: 10px;
+        }
+
+        #info-box h3 {
+            margin-top: 0;
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        #info-box div {
+            margin-bottom: 10px;
+        }
+
+        #info-box div span {
+            font-weight: bold;
+            margin-right: 5px;
+        }
+
+        #lat span {
+            color: #2196f3;
+        }
+
+        #lng span {
+            color: #9c27b0;
+        }
+
+        #time span {
+            color: #ff9800;
+        }
+
+        #speed span {
+            color: #4caf50;
+        }
+
+        #cx span {
+            color: #333;
+        }
+
+        #cy span {
+            color: #333;
+        }
+
+        /* drop box container */
+        #drop-box-container {
+            width: 300px;
+            margin-right: 20px;
+        }
+
+        #fileInput {
+        }
+        #dropZone {
+            width: 200px;
+            height: 200px;
+            border: 2px dashed #ccc;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 18px;
+            font-weight: bold;
+            color: #999;
+        }
+
+        #dropZone:hover {
+            border: 2px dashed #2196f3;
+        }
+
+        #dropZone.active {
+            border: 2px dashed #4caf50;
+        }
+
+        #dropZone.has-file {
+            border: 2px dashed #9c27b0;
+        }
+
+        #dropZone p {
+            margin: 0;
+            padding: 10px;
+        }
+
+    </style>
+
+    <script>
+        function handleDrop(event) {
+            event.preventDefault();
+            var files = event.dataTransfer.files;
+            handleFiles(files);
+        }
+
+        lat_center = 51.991470;
+        lng_center = 19.808562;
+        path = [];
+
+        function handleFiles(files) {
+            var file = files[0];
+            var reader = new FileReader();
+
+            reader.onload = function (event) {
+                var contents = event.target.result;
+                var coordinates = contents.split('\n');
+
+                var map = new google.maps.Map(document.getElementById('map'), {
+                    zoom: 20,
+                    center: { lat: 52.204590, lng: 20.574348 },
+                    mapTypeId: google.maps.MapTypeId.ROADMAP,
+                    zoomControl: true,
+                });
+
+                var laps = [];
+
+                for (var i = 0; i < coordinates.length; i++) {
+                    var latLng = coordinates[i].split(',');
+
+                    var lat = parseFloat(latLng[3]);
+                    var lng = parseFloat(latLng[4]);
+                    var lap = latLng[9];
+                    if (lap !== undefined) {
+                        laps[lap] = undefined;
+                    }
+
+                    var t0 = latLng[2];
+                    var speed = latLng[5];
+                    var x = latLng[7];
+                    var y = latLng[8];
+
+                    if (lat && lng) {
+                        path.push({ lat: lat, lng: lng, lap: lap.trim(), t0: t0, speed: speed, x: x, y: y });
+                    }
+                }
+
+                const list = document.getElementById("lista-okrazen");
+                for (const lapsKey in laps) {
+                    var curPath = []
+                    for (var j = 0; j < path.length; j++) {
+                        if (lapsKey == parseInt(path[j].lap)) {
+                            curPath.push({t0: path[j].t0})
+                        }
+                    }
+
+                    var time1 = curPath[0].t0;
+                    var time2 = curPath[curPath.length - 1].t0;
+                    const date1 = new Date(`01/01/1970 ${time1} GMT+0100`);
+                    const date2 = new Date(`01/01/1970 ${time2} GMT+0100`);
+                    const diff = Math.abs(date2.getTime() - date1.getTime());
+                    const hours = Math.floor(diff / (1000 * 60 * 60));
+                    const minutes = Math.floor((diff / (1000 * 60)) % 60);
+                    const seconds = Math.floor((diff / 1000) % 60);
+                    const milliseconds = diff % 1000;
+
+                    list.innerHTML += `<li><a href="#okrazenie-${lapsKey}"> ${lapsKey} - ${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}:${milliseconds.toString().padStart(3, '0')}</a></li>`;
+                }
+            }
+
+            reader.readAsText(file);
+        }
+
+        window.addEventListener('hashchange', () => {
+            var currentLap = location.hash.split("-")[1];
+            var lapPath = []
+
+            for (var i = 0; i < path.length; i++) {
+                if (path[i].lap === currentLap) {
+                    lapPath.push({lat: path[i].lat, lng: path[i].lng, t0: path[i].t0, speed: path[i].speed, x: path[i].x, y: path[i].y});
+                }
+            }
+
+            var lap_lat_max =  Math.max.apply(Math,lapPath.map(function(obj){return obj.lat;}));
+            var lap_lng_max = Math.max.apply(Math,lapPath.map(function(obj){return obj.lng;}));
+            var lap_lat_min = Math.min.apply(Math,lapPath.map(function(obj){return obj.lat;}));
+            var lap_lng_min = Math.min.apply(Math,lapPath.map(function(obj){return obj.lng;}));
+            lap_lat_center = (lap_lat_max + lap_lat_min) / 2;
+            lap_lng_center = (lap_lng_max + lap_lng_min) / 2;
+
+            var polyline = new google.maps.Polyline({
+                path: lapPath,
+                geodesic: true,
+                strokeColor: '#FF0000',
+                strokeOpacity: 1.0,
+                strokeWeight: 2
+            });
+
+            var map = new google.maps.Map(document.getElementById('map'), {
+                zoom: 12,
+                center: { lat: lap_lat_center, lng: lap_lng_center },
+                mapTypeId: google.maps.MapTypeId.ROADMAP,
+                zoomControl: true,
+            });
+
+            var bounds = new google.maps.LatLngBounds();
+            for (var i = 0; i < lapPath.length; i++) {
+                bounds.extend({lat: lapPath[i].lat, lng: lapPath[i].lng});
+            }
+
+            const infoBox = document.getElementById("info-box");
+            for (var i = 0; i < lapPath.length; i++) {
+                var marker = new google.maps.Marker({
+                    position: { lat: lapPath[i].lat, lng: lapPath[i].lng },
+                    map,
+                    zIndex: -1,
+                    optimized: true,
+                    title: `<div id="Okrozenie">Okrążenie Nr.: ${currentLap}</div><div id="lat">Lat: ${lapPath[i].lat}</div><div id="lng">Lng: ${lapPath[i].lng}</div><div id="time">Czas: ${lapPath[i].t0}</div><div id="speed">Prędkość: ${lapPath[i].speed}</div><div id="cx">X:${lapPath[i].x}</div><div id="cy">Y: ${lapPath[i].y}</div>`,
+                });
+
+                marker.setOpacity(0);
+
+                marker.addListener("mouseover", function (e) {
+                    infoBox.innerHTML = this.getTitle();
+                    e.ya.target.removeAttribute('title');
+                })
+            }
+
+
+            map.fitBounds(bounds);
+            polyline.setMap(map);
+        }, false);
+
+        function initMap() {
+            new google.maps.Map(document.getElementById("map"), {
+                zoom: 7,
+                center: { lat: lat_center, lng: lng_center },
+                mapTypeId: "terrain",
+                zoomControl: true,
+            });
+        }
+
+        window.initMap = initMap;
+
+    </script>
+</head>
+<body>
+
+<div class="container">
+    <div id="map-container">
+        <div id="map"></div>
+    </div>
+</div>
+
+<div id="data-container">
+    <div id="drop-box-container">
+        <input type="file" id="fileInput" onchange="handleFiles(this.files)">
+        <div id="dropZone" style="width: 200px; height: 200px; border: 2px dashed black;">Przeciągnij i upuść plik tutaj</div>
+    </div>
+
+    <div id="okrazenia">
+        <h1 style="margin:0px;">Lista okrążeń</h1>
+        <h2 id="czas-okrazenia"></h2>
+
+        <ul id="lista-okrazen">
+
+        </ul>
+    </div>
+
+    <div id="info-box-container">
+        
+        <div id="info-box"><div id="Okrozenie">Okrążenie Nr.: </div><div id="lat">Lat: </div><div id="lng">Lng: </div><div id="time">Czas: </div><div id="speed">Prędkość: </div><div id="cx">X:</div><div id="cy">Y: </div></div>
+    </div>
+</div>
+
+<script src="https://maps.googleapis.com/maps/api/js?key=MY_KEY&callback=initMap&v=weekly"></script>
+<script>
+    var dropZone = document.getElementById('dropZone');
+    dropZone.addEventListener('dragover', function (event) {
+        event.preventDefault();
+    }, false);
+    dropZone.addEventListener('drop', handleDrop, false);
+</script>
+</body>
+</html>
